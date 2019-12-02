@@ -424,7 +424,8 @@ stage of the protocol.
 To avoid performing a separate round-trip for each token and to generate a more performant
 VOPRF proof, the client and server can do batched issuance of tokens, where multiple x are
 blinded and sent in a patch. The client can then perform an adapted protocol to receive
-VOPRF evaluations from the server. The client generates valid VOPRF inputs xi (an array of
+VOPRF evaluations from the server, generating up to batchsize tokens based on the retrieved key
+commitment from the server. The client generates valid VOPRF inputs xi (an array of
 a sequence of bytes from some unpredictable distribution), and runs the VOPRF evaluation
 phase with the server. The client receives an output yi of the form:
 
@@ -441,7 +442,8 @@ protocol below.
 ~~~
     C(x, aux)                                 S(ppKey)
     ----------------------------------------------------------------------
-    var ciph = retrieve(S.id)
+    var (ciph, batchsize) = retrieve(S.id)
+    var xi = for i in batchsize: <-$ GF(p)
     var (ri,Mi) = for x in [xi]: VOPRF_Blind(x)
     var req = {
       type: "batched",
@@ -476,7 +478,7 @@ protocol below.
       panic(KEY_VERIFICATION_ERROR)
     }
     var Ni = VOPRF_Batch_Unblind(ri,ciph.G,obj.Y,Mi,elt,proof)
-    var yi = VOPRF_Batch_Finalize(x,Ni,aux)
+    var yi = VOPRF_Batch_Finalize(xi,Ni,aux)
     if (yi == "error") {
       panic(CLIENT_VERIFICATION_ERROR)
     }
@@ -557,6 +559,7 @@ below.
   {
     "server_1": {
       "ciphersuite": ...,
+      "batchsize": ...,
       "1.0": {
         "Y": ...,
         "expiry": ...,
@@ -570,6 +573,7 @@ below.
     }
     "server_2": {
       "ciphersuite": ...,
+      "batchsize": ...,
       "1.0": {
         "Y": ...,
         "expiry": ...,
@@ -586,7 +590,8 @@ the server. The sub-members "1.0", "1.1" of "server_1" correspond to the
 versions of commitments available to the client. Increasing version numbers
 should correspond to newer keys. Each commitment should be a valid encoding of a
 point corresponding to the group in the VOPRF ciphersuite specified in
-"ciphersuite".
+"ciphersuite". The "batchsize" is the maximum number of tokens it will sign in a
+batched issuance instantiation.
 
 If "server_2" wants to upload a new commitment with version tag "1.1", it runs
 the key initialisation procedure from above and adds a new sub-member "1.1" with
@@ -598,6 +603,7 @@ take the form below.
     ...
     "server_2": {
       "ciphersuite": ...,
+      "batchsize": ...,
       "1.0": {
         "Y": ...,
         "expiry": ...,
